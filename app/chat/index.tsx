@@ -5,7 +5,7 @@ export class index extends Component {
   render() {
     return (
       <View>
-        <Text> Index Logged IN </Text>
+        <Text> textInComponent </Text>
       </View>
     )
   }

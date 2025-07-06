@@ -1,14 +1,14 @@
 import React, { Component } from 'react'
 import { Text, View } from 'react-native'
 
-export class index extends Component {
+export class profile extends Component {
   render() {
     return (
       <View>
-        <Text> Index Logged IN </Text>
+        <Text> textInComponent </Text>
       </View>
     )
   }
 }
 
-export default index
+export default profile
