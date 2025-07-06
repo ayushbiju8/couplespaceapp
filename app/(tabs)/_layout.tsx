@@ -12,11 +12,11 @@ export default function TabLayout() {
             }}
         >
             <Tabs.Screen
-                name="index"
+                name="couplespace"
                 options={{
-                    title: "Home",
+                    title: "CoupleSpace",
                     tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="home-outline" size={size} color={color} />
+                        <Ionicons name="heart-outline" size={size} color={color} />
                     ),
                 }}
             />
@@ -30,11 +30,11 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="profile"
+                name="index"
                 options={{
-                    title: "Profile",
+                    title: "Home",
                     tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="person-outline" size={size} color={color} />
+                        <Ionicons name="home-outline" size={size} color={color} />
                     ),
                 }}
             />
@@ -48,11 +48,11 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="couplespace"
+                name="profile"
                 options={{
-                    title: "CoupleSpace",
+                    title: "Profile",
                     tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="heart-outline" size={size} color={color} />
+                        <Ionicons name="person-outline" size={size} color={color} />
                     ),
                 }}
             />
