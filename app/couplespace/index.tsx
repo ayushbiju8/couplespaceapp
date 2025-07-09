@@ -160,7 +160,7 @@ export default function CoupleSpace() {
         </TouchableOpacity>
 
         {/* Partner Info */}
-        <View className="absolute left-56 top-20 w-auto h-52">
+        <View className="absolute left-56 top-24 w-auto h-52">
           <Text className="text-amber-900 font-bold text-2xl">
             {couple?.partnerOneName.split(" ")[0]} &{" "}
             {couple?.partnerTwoName.split(" ")[0]}

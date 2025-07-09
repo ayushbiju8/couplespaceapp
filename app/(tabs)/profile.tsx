@@ -1,5 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+
 
 type Post = {
   id: string;
@@ -42,35 +45,35 @@ const Profile = () => {
     fetchProfileData();
   }, []);
 
-  const fetchProfileData = async () => {
-    try {
-      setLoading(true);
-      const userData = {
-        name: 'Alex',
-        dob: '14 Feb 2020',
-        bio: 'Forever vibing | Pizza lovers 🍕',
-        interests: 'Travel, Food, Memes',
-        profilePicUri: 'https://via.placeholder.com/100/FFC0CB',
-        posts: [
-          { id: '1', uri: 'https://via.placeholder.com/150/FFC0CB' },
-          { id: '2', uri: 'https://via.placeholder.com/150/FFB6C1' },
-          { id: '3', uri: 'https://via.placeholder.com/150/F8BBD0' },
-          { id: '4', uri: 'https://via.placeholder.com/150/FFE4E1' },
-          { id: '5', uri: 'https://via.placeholder.com/150/FF69B4' },
-        ],
-      };
-      setName(userData.name);
-      setDob(userData.dob);
-      setBio(userData.bio);
-      setInterests(userData.interests);
-      setProfilePicUri(userData.profilePicUri);
-      setPosts(userData.posts);
-    } catch (err) {
-      console.error('Failed to fetch profile:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchProfileData = async () => {
+  try {
+    setLoading(true);
+
+    const token = await AsyncStorage.getItem('token');
+    if (!token) throw new Error('No token found');
+
+    const res = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/users/current-user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const userData = res.data.data;
+
+    setName(userData.fullName);
+    setDob(new Date(userData.dob).toDateString()); // e.g., "Mon Mar 03 2006"
+    setBio(userData.bio);
+    setInterests(JSON.parse(userData.interests[0] || '[]').join(', ')); // handle array-in-string
+    setProfilePicUri(userData.profilePicture);
+    // Optional: setPosts([]) or fetch posts from another endpoint
+
+  } catch (error) {
+    console.error('Failed to fetch profile:', error);
+    Alert.alert('Error', 'Could not load profile. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const openProfilePic = () => {
     setProfilePicModalVisible(true);
