@@ -144,7 +144,7 @@ const Profile = () => {
   return (
     <ScrollView className="flex-1 bg-pink-50">
       <View className="pt-10 px-5 items-end">
-        <TouchableOpacity onPress={() => router.replace('/otherpages/settings')}>
+        <TouchableOpacity onPress={() => router.push('/otherpages/settings')}>
           <Ionicons name="settings-outline" size={24} color="#D81B60" />
         </TouchableOpacity>
       </View>
