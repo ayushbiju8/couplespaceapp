@@ -11,7 +11,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function CoupleSpace() {
   const router = useRouter();
-  const { currentUser } = useUser();
   const { couple, refreshCouple } = useCouple();
 
   const [cupidScore, setCupidScore] = useState<number | null>(null);
@@ -35,6 +34,7 @@ export default function CoupleSpace() {
         );
         setCupidScore(res.data.cupidScore);
         setDaysTogether(res.data.daysTogether);
+        // console.log(couple?.coupleName)
       } catch (error) {
         console.error("Error fetching cupid score:", error);
       }

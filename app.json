@@ -4,7 +4,7 @@
     "slug": "AppCoupleSpace",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/background.jpeg",
+    "icon": "./assets/images/icon.png",
     "scheme": "appcouplespace",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -40,10 +40,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "7f87a91e-d82a-4404-8339-9aeaa59462dd"
-      }
-    }
+  "router": {}
+}
   }
 }

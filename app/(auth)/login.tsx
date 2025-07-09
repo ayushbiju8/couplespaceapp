@@ -3,8 +3,10 @@ import { View, Text, TextInput, Pressable, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../contexts/AuthContext";
 import axios from "axios";
+import { useCouple } from "@/contexts/CoupleContext";
 
 export default function LoginScreen() {
+  const {refreshCouple}=useCouple()
   const router = useRouter();
   const { login } = useAuth();
 
@@ -30,6 +32,7 @@ export default function LoginScreen() {
 
       // Save token and decoded user
       await login(accessToken);
+      // refreshCouple()
       router.replace("/(tabs)");
     } catch (err: any) {
       Alert.alert("Login Failed", err.response?.data?.message || err.message);
