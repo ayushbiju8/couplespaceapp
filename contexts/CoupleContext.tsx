@@ -53,19 +53,29 @@ export const CoupleProvider = ({ children }: Props) => {
       });
 
       setCouple(res.data.data);
+      await AsyncStorage.setItem("coupleData", JSON.stringify(res.data.data)); // cache it
     } catch (err) {
-      if (err instanceof Error) {
-        console.error("Failed to fetch couple:", err.message);
-      } else {
-        console.error("Unknown error while fetching couple:", err);
-      }
+      console.error("Failed to fetch couple:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCouple();
+    const init = async () => {
+      try {
+        const cached = await AsyncStorage.getItem("coupleData");
+        if (cached) {
+          setCouple(JSON.parse(cached)); // use cached data instantly
+        }
+      } catch (err) {
+        console.error("Failed to load cached couple:", err);
+      }
+
+      fetchCouple(); // always try to fetch fresh
+    };
+
+    init();
   }, []);
 
   return (
@@ -79,4 +89,9 @@ export const useCouple = () => {
   const context = useContext(CoupleContext);
   if (!context) throw new Error("useCouple must be used within CoupleProvider");
   return context;
+};
+
+// Optional utility to clear couple data on logout
+export const clearCoupleData = async () => {
+  await AsyncStorage.removeItem("coupleData");
 };

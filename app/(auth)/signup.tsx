@@ -37,7 +37,7 @@ export default function SignupScreen() {
 
       const { accessToken, user } = data.data;
       await login(accessToken, user); // ✅ Pass both token and user
-      router.replace("/home");
+      router.replace("/(tabs)");
     } catch (err: any) {
       Alert.alert("Signup Error", err.message);
     } finally {

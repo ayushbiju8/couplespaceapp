@@ -2,7 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { jwtDecode } from "jwt-decode";
 import { createContext, useContext, useEffect, useState } from "react";
 
-// User type matching token payload
 type User = {
   id: string;
   email: string;
@@ -15,7 +14,7 @@ type AuthContextType = {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (token: string, userData?: User) => Promise<void>;
+  login: (token: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -26,49 +25,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadUserFromToken = async () => {
+    const loadToken = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
         if (token) {
-          const decodedUser: any = jwtDecode(token);
-
-          const userObj: User = {
-            id: decodedUser._id,
-            email: decodedUser.email,
-            fullName: decodedUser.fullName,
-            profilePicture: decodedUser.profilePicture,
-            coupleId: decodedUser.coupleId,
-          };
-
-          setUser(userObj);
+          const decoded: any = jwtDecode(token);
+          setUser({
+            id: decoded._id,
+            email: decoded.email,
+            fullName: decoded.fullName,
+            profilePicture: decoded.profilePicture,
+            coupleId: decoded.coupleId,
+          });
         }
-      } catch (error) {
-        console.error("Failed to load token", error);
+      } catch (err) {
+        console.error("Failed to load token", err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadUserFromToken();
+    loadToken();
   }, []);
 
-  const login = async (token: string, userData?: User) => {
+  const login = async (token: string) => {
     await AsyncStorage.setItem("token", token);
-
-    if (userData) {
-      // Prefer explicitly passed user
-      setUser(userData);
-    } else {
-      const decodedUser: any = jwtDecode(token);
-      const userObj: User = {
-        id: decodedUser._id,
-        email: decodedUser.email,
-        fullName: decodedUser.fullName,
-        profilePicture: decodedUser.profilePicture,
-        coupleId: decodedUser.coupleId,
-      };
-      setUser(userObj);
-    }
+    const decoded: any = jwtDecode(token);
+    setUser({
+      id: decoded._id,
+      email: decoded.email,
+      fullName: decoded.fullName,
+      profilePicture: decoded.profilePicture,
+      coupleId: decoded.coupleId,
+    });
   };
 
   const logout = async () => {

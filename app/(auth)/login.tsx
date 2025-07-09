@@ -29,7 +29,7 @@ export default function LoginScreen() {
       const { accessToken, user } = res.data.data;
 
       // Save token and decoded user
-      await login(accessToken, user);
+      await login(accessToken);
       router.replace("/(tabs)");
     } catch (err: any) {
       Alert.alert("Login Failed", err.response?.data?.message || err.message);
