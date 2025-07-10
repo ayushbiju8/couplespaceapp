@@ -6,6 +6,8 @@ import {
 import * as ImagePicker from 'expo-image-picker'
 import { Ionicons, AntDesign, FontAwesome } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import AddPostModal from '@/components/AddPostModal' // ✅ adjust path based on your folder structure
+
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL
 
@@ -45,6 +47,7 @@ type Post = {
 }
 
 const Discover: React.FC = () => {
+  const [posting, setPosting] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
   const [modalVisible, setModalVisible] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -55,39 +58,39 @@ const Discover: React.FC = () => {
   const [description, setDescription] = useState('')
   const [image, setImage] = useState<string | undefined>(undefined)
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      const token = await getValidToken()
-      if (!token) return
+  const fetchPosts = async () => {
+    const token = await getValidToken()
+    if (!token) return
 
-      try {
-        const response = await fetch(`${BACKEND_URL}/post`, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        })
+    try {
+      const response = await fetch(`${BACKEND_URL}/post`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
-        const result = await response.json()
-        const formattedPosts: Post[] = result.data.map((item: any) => ({
-          id: item._id ?? '',
-          user: {
-            fullName: item.user?.fullName ?? 'Unknown',
-            profilePicture: item.user?.profilePicture ?? undefined,
-          },
-          content: item.heading ?? '',
-          likes: item.likes?.length ?? 0,
-          comments: item.comments?.length ?? 0,
-          liked: false,
-          image: item.image ?? undefined,
-        }))
-        setPosts(formattedPosts)
-      } catch (error) {
-        console.error('❌ Failed to fetch posts:', error)
-      } finally {
-        setLoading(false)
-      }
+      const result = await response.json()
+      const formattedPosts: Post[] = result.data.map((item: any) => ({
+        id: item._id ?? '',
+        user: {
+          fullName: item.user?.fullName ?? 'Unknown',
+          profilePicture: item.user?.profilePicture ?? undefined,
+        },
+        content: item.heading ?? '',
+        likes: item.likes?.length ?? 0,
+        comments: item.comments?.length ?? 0,
+        liked: false,
+        image: item.image ?? undefined,
+      }))
+      setPosts(formattedPosts)
+    } catch (error) {
+      console.error('❌ Failed to fetch posts:', error)
+    } finally {
+      setLoading(false)
     }
+  }
+  useEffect(() => {
     fetchPosts()
   }, [])
 
@@ -248,35 +251,46 @@ const Discover: React.FC = () => {
       </TouchableOpacity>
 
       {/* Add Post Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <View className="flex-1 bg-black/40 justify-center items-center px-4">
-          <View className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl">
-            <Text className="text-2xl font-bold text-center text-pink-500 mb-4">Create a Post</Text>
-            <TextInput
-              placeholder="Write something..."
-              value={description}
-              onChangeText={setDescription}
-              className="bg-pink-50 border border-pink-200 rounded-xl text-base text-gray-800 px-4 py-3 h-28 mb-4"
-              multiline
-            />
-            {image && (
-              <Image source={{ uri: image }} className="w-full h-52 rounded-xl mb-4" resizeMode="cover" />
-            )}
-            <TouchableOpacity onPress={pickImage} className="flex-row items-center self-center mb-6 px-4 py-2 border border-pink-200 bg-pink-50 rounded-full">
-              <Ionicons name="image-outline" size={22} color="#e75480" />
-              <Text className="ml-2 text-pink-500 font-semibold text-base">Pick Image</Text>
-            </TouchableOpacity>
-            <View className="flex-row justify-between">
-              <TouchableOpacity onPress={() => setModalVisible(false)} className="px-6 py-2 bg-gray-100 rounded-xl">
-                <Text className="text-gray-600 font-semibold text-base">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleAdd} className="px-6 py-2 bg-pink-500 rounded-xl shadow-md">
-                <Text className="text-white font-bold text-base">Post</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <AddPostModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        loading={posting}
+        onAdd={async (selectedImage, enteredDescription) => {
+          const token = await getValidToken()
+          if (!token) return
+
+          const formData = new FormData()
+          formData.append('heading', enteredDescription)
+          if (selectedImage) {
+            formData.append('image', {
+              uri: selectedImage,
+              name: 'photo.jpg',
+              type: 'image/jpeg',
+            } as any)
+          }
+
+          try {
+            setPosting(true)
+            await fetch(`${BACKEND_URL}/post/create`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              body: formData,
+            })
+            setModalVisible(false)
+            setDescription('')
+            setImage(undefined)
+            // Optional: reload posts
+            await fetchPosts()
+          } catch (err) {
+            console.error('❌ Failed to create post:', err)
+          } finally {
+            setPosting(false)
+          }
+        }}
+      />
+
 
       {/* Comment Modal (same as before) */}
     </View>

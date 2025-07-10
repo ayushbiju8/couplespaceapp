@@ -2,9 +2,14 @@ import { useUser } from "@/contexts/UserContext";
 import { connectSocket, getSocket } from "@/lib/socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import dayjs from "dayjs";
+import isToday from "dayjs/plugin/isToday";
+import isYesterday from "dayjs/plugin/isYesterday";
+import { BlurView } from "expo-blur";
 import React, { useEffect, useRef, useState } from "react";
 import {
   FlatList,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -13,6 +18,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+dayjs.extend(isToday);
+dayjs.extend(isYesterday);
 
 type Message = {
   _id: string;
@@ -44,16 +52,24 @@ export default function Chat() {
       });
 
       socket?.on("sendBack", (data: Message) => {
-        setMessages((prev) => [...prev, data]);
+        setMessages((prev) => {
+          const exists = prev.some((msg) => msg._id === data._id);
+          return exists ? prev : [...prev, data];
+        });
       });
 
       try {
-        const res = await axios.get("http://10.167.184.153:8000/api/v1/chat", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setMessages(res.data.data);
+        try {
+          const res = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/chat`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          setMessages([...res.data.data].reverse()); // Reverse to show oldest first
+        } catch (err) {
+          console.error("Fetch error:", err);
+        }
+
       } catch (err) {
         console.error("Fetch error:", err);
       }
@@ -70,55 +86,121 @@ export default function Chat() {
     const socket = getSocket();
     if (!message.trim()) return;
 
-    socket?.emit("send", { text: message });
+    socket?.emit("send", {
+      text: message.trim(),
+    });
+
     setMessage("");
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+
+  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isSentByMe = item.senderId === userId;
+    const previousMsg = messages[index - 1];
+    const nextMsg = messages[index + 1];
+
+    const currentDate = dayjs(item.createdAt);
+    const prevDate = previousMsg ? dayjs(previousMsg.createdAt) : null;
+
+    const showDateHeader =
+      index === 0 || !prevDate?.isSame(currentDate, "day");
+
+    const nextIsSameSender = nextMsg?.senderId === item.senderId;
+    const showTimestamp = !nextIsSameSender;
+
+    const formattedDate = currentDate.isToday()
+      ? "Today"
+      : currentDate.isYesterday()
+        ? "Yesterday"
+        : currentDate.format("MMMM D, YYYY");
 
     return (
-      <View
-        className={`max-w-[80%] px-4 py-2 m-2 rounded-2xl ${
-          isSentByMe
-            ? "bg-pink-500 self-end rounded-br-none"
-            : "bg-gray-200 self-start rounded-bl-none"
-        }`}
-      >
-        <Text className={`text-base ${isSentByMe ? "text-white" : "text-black"}`}>
-          {item.text}
-        </Text>
-      </View>
+      <>
+        {showDateHeader && (
+          <View className="items-center my-2">
+            <View className="bg-white/60 px-4 py-1 rounded-full">
+              <Text className="text-xs text-gray-600">{formattedDate}</Text>
+            </View>
+          </View>
+        )}
+
+        <View
+          className={`max-w-[80%] px-4 py-3 m-2 rounded-3xl ${isSentByMe
+              ? "bg-[#fbb6ce] self-end rounded-br-none"
+              : "bg-white/90 self-start rounded-bl-none"
+            }`}
+          style={{
+            marginLeft: isSentByMe ? 50 : 10,
+            marginRight: isSentByMe ? 10 : 50,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+          }}
+        >
+          <Text className={`text-base ${isSentByMe ? "text-black" : "text-black"}`}>
+            {item.text}
+          </Text>
+          {showTimestamp && (
+            <Text className="text-[10px] text-gray-500 mt-1 self-end">
+              {dayjs(item.createdAt).format("h:mm A")}
+            </Text>
+          )}
+        </View>
+      </>
     );
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-pink-50">
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item._id}
-        renderItem={renderMessage}
-        onContentSizeChange={() =>
-          flatListRef.current?.scrollToEnd({ animated: true })
-        }
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-      />
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        className="flex-row items-center px-3 py-2 border-t border-gray-300 bg-white"
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+    >
+      <ImageBackground
+        source={require("../../assets/images/background.jpg")}
+        resizeMode="cover"
+        className="flex-1"
       >
-        <TextInput
-          value={message}
-          onChangeText={setMessage}
-          placeholder="Type a message..."
-          className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-base mr-2"
-        />
-        <TouchableOpacity onPress={handleSend} className="bg-pink-500 p-3 rounded-full">
-          <Text className="text-white font-semibold">Send</Text>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <View className="flex-1 bg-black/10">
+          <SafeAreaView className="flex-1">
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item._id}
+              renderItem={renderMessage}
+              contentContainerStyle={{ padding: 10, paddingTop: 60 }}
+              onContentSizeChange={() =>
+                flatListRef.current?.scrollToEnd({ animated: true })
+              }
+              onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+              keyboardShouldPersistTaps="handled"
+            />
+
+            <View className="px-3 py-3">
+              <BlurView
+                intensity={70}
+                tint="light"
+                className="flex-row items-center rounded-full px-3 py-2 bg-white/30 backdrop-blur-md"
+              >
+                <TextInput
+                  value={message}
+                  onChangeText={setMessage}
+                  placeholder="Type something..."
+                  placeholderTextColor="#444"
+                  className="flex-1 px-4 py-2 text-base text-black"
+                />
+                <TouchableOpacity
+                  onPress={handleSend}
+                  className="bg-pink-500 px-4 py-2 rounded-full ml-2"
+                >
+                  <Text className="text-white font-bold">Send</Text>
+                </TouchableOpacity>
+              </BlurView>
+            </View>
+          </SafeAreaView>
+        </View>
+      </ImageBackground>
+    </KeyboardAvoidingView>
   );
 }

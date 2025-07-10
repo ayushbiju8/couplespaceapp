@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import React, { useEffect, useState } from 'react'
+import { ActivityIndicator } from 'react-native'
 import {
     Image,
     Modal,
@@ -14,9 +15,12 @@ type Props = {
   visible: boolean
   onClose: () => void
   onAdd: (image: string | undefined, description: string) => void
+  loading?: boolean
 }
 
-const AddPostModal: React.FC<Props> = ({ visible, onClose, onAdd }) => {
+
+
+const AddPostModal: React.FC<Props> = ({ visible, onClose, onAdd,loading }) => {
   const [description, setDescription] = useState('')
   const [image, setImage] = useState<string | undefined>(undefined)
 
@@ -90,11 +94,17 @@ const AddPostModal: React.FC<Props> = ({ visible, onClose, onAdd }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={handleAdd}
-              className="px-6 py-2 bg-pink-500 rounded-xl shadow-md"
-            >
-              <Text className="text-white font-bold text-base">Post</Text>
-            </TouchableOpacity>
+  onPress={handleAdd}
+  className={`px-6 py-2 rounded-xl shadow-md ${loading ? 'bg-pink-300' : 'bg-pink-500'}`}
+  disabled={loading}
+>
+  {loading ? (
+    <ActivityIndicator size="small" color="#fff" />
+  ) : (
+    <Text className="text-white font-bold text-base">Post</Text>
+  )}
+</TouchableOpacity>
+
           </View>
         </View>
       </View>
