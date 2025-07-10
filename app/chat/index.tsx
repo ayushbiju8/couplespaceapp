@@ -1,3 +1,4 @@
+import { useUser } from "@/contexts/UserContext";
 import { connectSocket, getSocket } from "@/lib/socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -24,23 +25,17 @@ type Message = {
 export default function Chat() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
-
-  const fetchMessages = async () => {
-    try {
-      const res = await axios.get("http://10.167.184.153:8000/api/v1/chat", {
-        headers: {
-          Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
-        },
-      });
-      setMessages(res.data.data);
-    } catch (err) {
-      console.error("Fetch error:", err);
-    }
-  };
+  const { currentUser } = useUser();
 
   useEffect(() => {
-    const setupSocket = async () => {
+    if (!currentUser?._id) return;
+
+    const setup = async () => {
+      const token = await AsyncStorage.getItem("token");
+      setUserId(currentUser._id);
+
       await connectSocket();
       const socket = getSocket();
 
@@ -51,15 +46,25 @@ export default function Chat() {
       socket?.on("sendBack", (data: Message) => {
         setMessages((prev) => [...prev, data]);
       });
+
+      try {
+        const res = await axios.get("http://10.167.184.153:8000/api/v1/chat", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setMessages(res.data.data);
+      } catch (err) {
+        console.error("Fetch error:", err);
+      }
     };
 
-    fetchMessages();
-    setupSocket();
+    setup();
 
     return () => {
       getSocket()?.disconnect();
     };
-  }, []);
+  }, [currentUser]);
 
   const handleSend = () => {
     const socket = getSocket();
@@ -69,28 +74,48 @@ export default function Chat() {
     setMessage("");
   };
 
+  const renderMessage = ({ item }: { item: Message }) => {
+    const isSentByMe = item.senderId === userId;
+
+    return (
+      <View
+        className={`max-w-[80%] px-4 py-2 m-2 rounded-2xl ${
+          isSentByMe
+            ? "bg-pink-500 self-end rounded-br-none"
+            : "bg-gray-200 self-start rounded-bl-none"
+        }`}
+      >
+        <Text className={`text-base ${isSentByMe ? "text-white" : "text-black"}`}>
+          {item.text}
+        </Text>
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-pink-50">
       <FlatList
         ref={flatListRef}
         data={messages}
         keyExtractor={(item) => item._id}
-        renderItem={({ item }) => (
-          <View className={`p-2 my-1 mx-3 rounded-lg ${item.senderId === "YOUR_ID" ? "bg-pink-200 self-end" : "bg-gray-200 self-start"}`}>
-            {item.text && <Text className="text-sm">{item.text}</Text>}
-          </View>
-        )}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        renderItem={renderMessage}
+        onContentSizeChange={() =>
+          flatListRef.current?.scrollToEnd({ animated: true })
+        }
+        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-row items-center px-3 py-2 border-t border-gray-200">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        className="flex-row items-center px-3 py-2 border-t border-gray-300 bg-white"
+      >
         <TextInput
           value={message}
           onChangeText={setMessage}
           placeholder="Type a message..."
-          className="flex-1 bg-gray-100 rounded-full px-4 py-2 mr-2"
+          className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-base mr-2"
         />
-        <TouchableOpacity onPress={handleSend} className="bg-pink-500 p-2 rounded-full">
+        <TouchableOpacity onPress={handleSend} className="bg-pink-500 p-3 rounded-full">
           <Text className="text-white font-semibold">Send</Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>

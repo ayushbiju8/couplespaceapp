@@ -45,35 +45,35 @@ const Profile = () => {
     fetchProfileData();
   }, []);
 
-const fetchProfileData = async () => {
-  try {
-    setLoading(true);
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
 
-    const token = await AsyncStorage.getItem('token');
-    if (!token) throw new Error('No token found');
+      const token = await AsyncStorage.getItem('token');
+      if (!token) throw new Error('No token found');
 
-    const res = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/users/current-user`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      const res = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/users/current-user`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    const userData = res.data.data;
+      const userData = res.data.data;
 
-    setName(userData.fullName);
-    setDob(new Date(userData.dob).toDateString()); // e.g., "Mon Mar 03 2006"
-    setBio(userData.bio);
-    setInterests(JSON.parse(userData.interests[0] || '[]').join(', ')); // handle array-in-string
-    setProfilePicUri(userData.profilePicture);
-    // Optional: setPosts([]) or fetch posts from another endpoint
+      setName(userData.fullName);
+      setDob(new Date(userData.dob).toDateString()); // e.g., "Mon Mar 03 2006"
+      setBio(userData.bio);
+      setInterests(JSON.parse(userData.interests[0] || '[]').join(', ')); // handle array-in-string
+      setProfilePicUri(userData.profilePicture);
+      // Optional: setPosts([]) or fetch posts from another endpoint
 
-  } catch (error) {
-    console.error('Failed to fetch profile:', error);
-    Alert.alert('Error', 'Could not load profile. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      Alert.alert('Error', 'Could not load profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openProfilePic = () => {
     setProfilePicModalVisible(true);
@@ -160,17 +160,35 @@ const fetchProfileData = async () => {
       >
         <TouchableOpacity className="flex-1 bg-black/85 justify-center items-center" onPress={closeProfilePic}>
           <Animated.Image
-            source={{ uri: profilePicUri }}
-            style={{ width: 300, height: 300, borderRadius: 150, transform: [{ scale: profilePicScale }] }}
+            source={
+              profilePicUri && profilePicUri.trim() !== ''
+                ? { uri: profilePicUri }
+                : require('../../assets/images/background.jpg') // your fallback
+            }
+            style={{
+              width: 300,
+              height: 300,
+              borderRadius: 150,
+              transform: [{ scale: profilePicScale }],
+            }}
             resizeMode="contain"
           />
+
         </TouchableOpacity>
       </Modal>
 
       <View className="flex-row items-center gap-4 px-5 mt-5">
         <TouchableOpacity onPress={() => (isEditing ? pickImage() : openProfilePic())}>
-          <Image source={{ uri: profilePicUri }} className="w-24 h-24 rounded-full border-2 border-pink-600" />
+          <Image
+            source={
+              profilePicUri
+                ? { uri: profilePicUri }
+                : require('../../assets/images/background.jpg') // 🧠 Use your fallback image
+            }
+            className="w-24 h-24 rounded-full border-2 border-pink-600"
+          />
         </TouchableOpacity>
+
 
         <View className="flex-1">
           {isEditing ? (
