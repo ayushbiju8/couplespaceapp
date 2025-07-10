@@ -1,3 +1,4 @@
+// 🧠 Unchanged imports...
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -18,14 +19,14 @@ import {
   View,
 } from 'react-native';
 
-
+// 😎 Still the same type
 type Post = {
   id: string;
   uri: string;
 };
 
 const Profile = () => {
-  const router = useRouter()
+  const router = useRouter();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('Alex');
@@ -48,24 +49,17 @@ const Profile = () => {
   const fetchProfileData = async () => {
     try {
       setLoading(true);
-
       const token = await AsyncStorage.getItem('token');
       if (!token) throw new Error('No token found');
-
       const res = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/users/current-user`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       const userData = res.data.data;
-
       setName(userData.fullName);
-      setDob(new Date(userData.dob).toDateString()); // e.g., "Mon Mar 03 2006"
+      setDob(new Date(userData.dob).toDateString());
       setBio(userData.bio);
-      setInterests(JSON.parse(userData.interests[0] || '[]').join(', ')); // handle array-in-string
-      setProfilePicUri(userData.profilePicture);
-      // Optional: setPosts([]) or fetch posts from another endpoint
+      setInterests(JSON.parse(userData.interests[0] || '[]').join(', '));
+      setProfilePicUri(userData.profilePicture?.startsWith('http') ? userData.profilePicture : '');
 
     } catch (error) {
       console.error('Failed to fetch profile:', error);
@@ -152,6 +146,7 @@ const Profile = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Modal for Profile Pic */}
       <Modal
         visible={profilePicModalVisible}
         transparent
@@ -161,86 +156,94 @@ const Profile = () => {
         <TouchableOpacity className="flex-1 bg-black/85 justify-center items-center" onPress={closeProfilePic}>
           <Animated.Image
             source={
-              profilePicUri && profilePicUri.trim() !== ''
+              profilePicUri
                 ? { uri: profilePicUri }
-                : require('../../assets/images/background.jpg') // your fallback
+                : require('../../assets/images/e.jpg') // 👈 fallback image
             }
-            style={{
-              width: 300,
-              height: 300,
-              borderRadius: 150,
-              transform: [{ scale: profilePicScale }],
-            }}
+            style={{ width: 300, height: 300, borderRadius: 150, transform: [{ scale: profilePicScale }] }}
             resizeMode="contain"
           />
-
         </TouchableOpacity>
       </Modal>
 
-      <View className="flex-row items-center gap-4 px-5 mt-5">
-        <TouchableOpacity onPress={() => (isEditing ? pickImage() : openProfilePic())}>
-          <Image
-            source={
-              profilePicUri
-                ? { uri: profilePicUri }
-                : require('../../assets/images/background.jpg') // 🧠 Use your fallback image
-            }
-            className="w-24 h-24 rounded-full border-2 border-pink-600"
-          />
-        </TouchableOpacity>
+      {/* Profile Section */}
+      <View className="px-5 mt-5">
+        <View className="bg-white rounded-xl p-4 shadow-md">
+          <View className="flex-row items-center gap-4">
+            <TouchableOpacity onPress={() => (isEditing ? pickImage() : openProfilePic())}>
+              <Image
+                source={
+                  profilePicUri
+                    ? { uri: profilePicUri }
+                    : require('../../assets/images/e.jpg')
+                }
+                className="w-24 h-24 rounded-full border-2 border-pink-600 shadow"
+              />
+            </TouchableOpacity>
 
+            <View className="flex-1">
+              {isEditing ? (
+                <>
+                  <TextInput
+                    className="text-base text-gray-700 mt-1 border-b border-gray-300"
+                    value={tempName}
+                    onChangeText={setTempName}
+                    placeholder="Name"
+                  />
+                  <TextInput
+                    className="text-base text-gray-700 mt-1 border-b border-gray-300"
+                    value={tempBio}
+                    onChangeText={setTempBio}
+                    placeholder="Bio"
+                  />
+                  <TextInput
+                    className="text-base text-gray-700 mt-1 border-b border-gray-300"
+                    value={tempDob}
+                    onChangeText={setTempDob}
+                    placeholder="Date of Birth"
+                  />
+                  <TextInput
+                    className="text-base text-gray-700 mt-1 border-b border-gray-300"
+                    value={tempInterests}
+                    onChangeText={setTempInterests}
+                    placeholder="Interests"
+                  />
+                </>
+              ) : (
+                <>
+                  <Text className="text-xl font-bold text-pink-700">{name}</Text>
+                  <Text className="text-base italic text-gray-600 mt-1">{bio}</Text>
+                  <Text className="text-sm text-gray-500 mt-1">DOB: {dob}</Text>
+                  <Text className="text-sm text-gray-500">Interests: {interests}</Text>
+                </>
+              )}
+              <Text className="text-sm text-gray-500 mt-1">Posts: {posts.length}</Text>
+            </View>
+          </View>
 
-        <View className="flex-1">
           {isEditing ? (
-            <>
-              <TextInput
-                className="text-base text-gray-700 mt-1 border-b border-gray-300"
-                value={tempName}
-                onChangeText={setTempName}
-                placeholder="Name"
-              />
-              <TextInput
-                className="text-base text-gray-700 mt-1 border-b border-gray-300"
-                value={tempBio}
-                onChangeText={setTempBio}
-                placeholder="Bio"
-              />
-              <TextInput
-                className="text-base text-gray-700 mt-1 border-b border-gray-300"
-                value={tempDob}
-                onChangeText={setTempDob}
-                placeholder="Date of Birth"
-              />
-              <TextInput
-                className="text-base text-gray-700 mt-1 border-b border-gray-300"
-                value={tempInterests}
-                onChangeText={setTempInterests}
-                placeholder="Interests"
-              />
-            </>
+            <TouchableOpacity onPress={handleSave} className="bg-green-600 rounded-lg py-2 mt-4 items-center">
+              <Text className="text-white font-semibold">Done</Text>
+            </TouchableOpacity>
           ) : (
-            <>
-              <Text className="text-xl font-bold text-pink-700">{name}</Text>
-              <Text className="text-base italic text-gray-600 mt-1">{bio}</Text>
-              <Text className="text-sm text-gray-500 mt-1">DOB: {dob}</Text>
-              <Text className="text-sm text-gray-500">Interests: {interests}</Text>
-            </>
+            <TouchableOpacity onPress={handleEdit} className="self-end mt-3">
+              <Text className="text-pink-700 font-medium">Edit Profile</Text>
+            </TouchableOpacity>
           )}
-          <Text className="text-sm text-gray-500 mt-1">Posts: {posts.length}</Text>
         </View>
       </View>
 
-      {isEditing ? (
-        <TouchableOpacity onPress={handleSave} className="bg-green-600 mx-5 rounded-lg py-2 my-3 items-center">
-          <Text className="text-white font-semibold">Done</Text>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity onPress={handleEdit} className="self-end pr-5 my-2">
-          <Text className="text-pink-700">Edit Profile</Text>
-        </TouchableOpacity>
-      )}
+      {/* Divider */}
+      <View className="flex-row items-center mt-6 mb-2 mx-5">
+        <View className="flex-1 h-px bg-pink-200" />
+        <Text className="mx-2 text-sm text-pink-600 font-semibold">About Me</Text>
+        <View className="flex-1 h-px bg-pink-200" />
+      </View>
 
-      <Text className="text-lg font-semibold text-pink-600 px-5 mt-4">Posts</Text>
+      {/* Posts Heading */}
+      <Text className="text-xl font-bold text-pink-600 px-5 mt-2 mb-2">📸 Posts</Text>
+
+      {/* Posts Grid */}
       <FlatList
         data={posts}
         renderItem={renderPost}
