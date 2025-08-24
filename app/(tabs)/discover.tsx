@@ -94,6 +94,8 @@ const Discover: React.FC = () => {
     fetchPosts()
   }, [])
 
+  
+
   const fetchComments = async (postId: string) => {
     const token = await getValidToken()
     if (!token) return

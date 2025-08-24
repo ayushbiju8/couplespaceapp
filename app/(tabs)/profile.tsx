@@ -42,41 +42,65 @@ const Profile = () => {
   const [profilePicModalVisible, setProfilePicModalVisible] = useState(false);
   const profilePicScale = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    fetchProfileData();
-  }, []);
 
   const fetchProfileData = async () => {
-  try {
-    setLoading(true);
-    const token = await AsyncStorage.getItem('token');
-    if (!token) throw new Error('No token found');
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) throw new Error('No token found');
 
-    const res = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/users/fetch-profile`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+      const res = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/users/fetch-profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    const userData = res.data.user || res.data.data || res.data;
+      const userData = res.data.user || res.data.data || res.data;
 
-    if (!userData) throw new Error('User data not found in response');
+      if (!userData) throw new Error('User data not found in response');
 
-    const rawDob = userData.dob ? new Date(userData.dob) : null;
+      const rawDob = userData.dob ? new Date(userData.dob) : null;
 
-    setName(userData.fullName || '');
-    setDob(rawDob ? rawDob.toDateString() : '');
-    setTempDob(rawDob ? rawDob.toISOString().split('T')[0] : '');
-    setBio(userData.bio || '');
-    setInterests(userData.interests?.length ? JSON.parse(userData.interests[0] || '[]').join(', ') : '');
-    setTempInterests(userData.interests?.length ? JSON.parse(userData.interests[0] || '[]').join(', ') : '');
-    setProfilePicUri(userData.profilePicture || '');
+      setName(userData.fullName || '');
+      setDob(rawDob ? rawDob.toDateString() : '');
+      setTempDob(rawDob ? rawDob.toISOString().split('T')[0] : '');
+      setBio(userData.bio || '');
+      setInterests(userData.interests?.length ? JSON.parse(userData.interests[0] || '[]').join(', ') : '');
+      setTempInterests(userData.interests?.length ? JSON.parse(userData.interests[0] || '[]').join(', ') : '');
+      setProfilePicUri(userData.profilePicture || '');
 
-  } catch (error) {
-    console.error('Failed to fetch profile:', error);
-    Alert.alert('Error', 'Could not load profile. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      Alert.alert('Error', 'Could not load profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMyPosts = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      const res = await axios.get(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/post/mypost`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // API returns { statusCode, data: [posts], message, success }
+      const postsData = res.data?.data || [];
+
+      // Map to your Post type { id, uri }
+      const formattedPosts = postsData.map((p: any) => ({
+        id: p._id,
+        uri: p.image || "", // fallback if no image
+      }));
+
+      setPosts(formattedPosts);
+    } catch (err) {
+      console.error("❌ Failed to fetch posts:", err);
+    }
+  };
 
 
   const openProfilePic = () => {
@@ -154,11 +178,18 @@ const Profile = () => {
     }
   };
 
+  useEffect(() => {
+    fetchProfileData();
+    fetchMyPosts();
+  }, []);
+
+
   const renderPost = ({ item }: { item: Post }) => (
     <View className="w-1/3 aspect-square m-1 rounded-lg bg-white overflow-hidden shadow">
       <Image source={{ uri: item.uri }} className="w-full h-full" />
     </View>
   );
+
 
   if (loading) {
     return (

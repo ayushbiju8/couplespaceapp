@@ -6,7 +6,7 @@ let socket: ReturnType<typeof io> | null = null;
 export const connectSocket = async () => {
   const token = await AsyncStorage.getItem("token");
 
-  socket = io("http://10.167.184.153:8000", {
+  socket = io("http://10.92.231.153:8000", {
     transports: ["websocket"],
     auth: {
       token,
