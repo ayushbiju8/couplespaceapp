@@ -38,11 +38,15 @@ const Roadmap = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [activeMemory, setActiveMemory] = useState<Memory | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [addModal, setAddModal] = useState(false);
+  const [formModal, setFormModal] = useState(false);
+  const [editing, setEditing] = useState(false);
+
   const [heading, setHeading] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false); // 🔥 new
   const [filter, setFilter] = useState('');
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -95,13 +99,14 @@ const Roadmap = () => {
     }
   };
 
-  /** Add a new memory */
+  /** Add new memory */
   const addMemory = async () => {
     if (!heading || !description || !image) {
       return Alert.alert('Please fill all fields.');
     }
 
     try {
+      setActionLoading(true);
       const token = await AsyncStorage.getItem('token');
       if (!token) return Alert.alert('Not logged in');
 
@@ -114,27 +119,105 @@ const Roadmap = () => {
         type: 'image/jpeg',
       } as unknown as Blob);
 
-      const res = await axios.post(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/couples/addroadmap`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
+      await axios.post(`${process.env.EXPO_PUBLIC_BACKEND_URL}/couples/addroadmap`, formData, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+      });
 
-      console.log('✅ Upload success:', res.data);
       await getMemories();
-      setAddModal(false);
-      setHeading('');
-      setDescription('');
-      setImage(null);
+      closeForm();
     } catch (err: any) {
       console.error('❌ POST error:', err.response?.data || err.message);
       Alert.alert('Upload failed', err.response?.data?.message || 'Try again');
+    } finally {
+      setActionLoading(false);
     }
+  };
+
+  /** Update memory */
+  const updateMemory = async () => {
+    if (!activeMemory) return;
+
+    try {
+      setActionLoading(true);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return Alert.alert('Not logged in');
+
+      const formData = new FormData();
+      formData.append('roadmapId', activeMemory._id);
+      formData.append('heading', heading || activeMemory.heading);
+      formData.append('description', description || activeMemory.description);
+
+      if (image) {
+        formData.append('image', {
+          uri: image,
+          name: 'roadmap.jpg',
+          type: 'image/jpeg',
+        } as unknown as Blob);
+      }
+
+      await axios.put(`${process.env.EXPO_PUBLIC_BACKEND_URL}/couples/updateRoadmap`, formData, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+      });
+
+      await getMemories();
+      closeForm();
+      setActiveMemory(null);
+    } catch (err: any) {
+      console.error('❌ PUT error:', err.response?.data || err.message);
+      Alert.alert('Update failed', err.response?.data?.message || 'Try again');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  /** Delete memory */
+  const deleteMemory = async () => {
+    if (!activeMemory) return;
+
+    try {
+      setActionLoading(true);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return Alert.alert('Not logged in');
+
+      await axios.delete(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/couples/deleteRoadmap/${activeMemory._id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      await getMemories();
+      setModalVisible(false);
+      setActiveMemory(null);
+    } catch (err: any) {
+      console.error('❌ DELETE error:', err.response?.data || err.message);
+      Alert.alert('Delete failed', err.response?.data?.message || 'Try again');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  /** Open form for add/edit */
+  const openForm = (edit = false, memory: Memory | null = null) => {
+    setEditing(edit);
+    if (edit && memory) {
+      setHeading(memory.heading);
+      setDescription(memory.description);
+      setImage(memory.image);
+      setActiveMemory(memory);
+    } else {
+      setHeading('');
+      setDescription('');
+      setImage(null);
+      setActiveMemory(null);
+    }
+    setFormModal(true);
+  };
+
+  const closeForm = () => {
+    setFormModal(false);
+    setHeading('');
+    setDescription('');
+    setImage(null);
+    setEditing(false);
   };
 
   const filteredMemories = filter
@@ -174,9 +257,7 @@ const Roadmap = () => {
       ) : (
         <Animated.ScrollView
           contentContainerStyle={{ height: containerHeight, paddingBottom: 150 }}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-            useNativeDriver: false,
-          })}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
           scrollEventThrottle={16}
         >
           {/* Curved lines */}
@@ -189,8 +270,8 @@ const Roadmap = () => {
                 const x2 = screenWidth / 2 + ((index + 1) % 2 === 0 ? -45 : 50);
                 const cx = (x1 + x2) / 2;
                 const cy = y1 + CONTROL_OFFSET;
-
                 const d = `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`;
+
                 const inputRange = [y1 - screenHeight / 2, y2];
                 const opacity = scrollY.interpolate({
                   inputRange,
@@ -198,17 +279,7 @@ const Roadmap = () => {
                   extrapolate: 'clamp',
                 });
 
-                return (
-                  <AnimatedPath
-                    key={`line-${memory._id}`}
-                    d={d}
-                    stroke={CURVE_COLOR}
-                    fill="none"
-                    strokeWidth={4}
-                    strokeLinecap="round"
-                    opacity={opacity}
-                  />
-                );
+                return <AnimatedPath key={`line-${memory._id}`} d={d} stroke={CURVE_COLOR} fill="none" strokeWidth={4} strokeLinecap="round" opacity={opacity} />;
               })}
             </Svg>
           </Animated.View>
@@ -262,7 +333,7 @@ const Roadmap = () => {
 
       {/* Floating Add Button */}
       <TouchableOpacity
-        onPress={() => setAddModal(true)}
+        onPress={() => openForm(false)}
         style={{
           position: 'absolute',
           bottom: 24,
@@ -302,22 +373,53 @@ const Roadmap = () => {
               {activeMemory?.heading}
             </Text>
             <Text style={{ textAlign: 'center', color: '#5e2a4d' }}>{activeMemory?.description}</Text>
+
+            {/* Edit button */}
             <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={{ marginTop: 16, backgroundColor: '#d11c84', padding: 10, borderRadius: 8 }}
+              onPress={() => {
+                setModalVisible(false);
+                openForm(true, activeMemory);
+              }}
+              disabled={actionLoading}
+              style={{
+                marginTop: 12,
+                backgroundColor: '#ff69b4',
+                padding: 10,
+                borderRadius: 8,
+                opacity: actionLoading ? 0.7 : 1,
+              }}
             >
-              <Text style={{ color: 'white', textAlign: 'center' }}>Close</Text>
+              {actionLoading ? <ActivityIndicator color="white" /> : <Text style={{ color: 'white', textAlign: 'center' }}>Edit</Text>}
+            </TouchableOpacity>
+
+            {/* Delete button */}
+            <TouchableOpacity
+              onPress={deleteMemory}
+              disabled={actionLoading}
+              style={{
+                marginTop: 8,
+                backgroundColor: '#ff3b30',
+                padding: 10,
+                borderRadius: 8,
+                opacity: actionLoading ? 0.7 : 1,
+              }}
+            >
+              {actionLoading ? <ActivityIndicator color="white" /> : <Text style={{ color: 'white', textAlign: 'center' }}>Delete</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={{ marginTop: 12 }}>
+              <Text style={{ textAlign: 'center', color: '#888' }}>Close</Text>
             </TouchableOpacity>
           </MotiView>
         </View>
       </Modal>
 
-      {/* Add Memory Modal */}
-      <Modal visible={addModal} transparent animationType="slide">
+      {/* Add/Edit Memory Modal */}
+      <Modal visible={formModal} transparent animationType="slide">
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#00000066' }}>
           <View style={{ backgroundColor: '#fff0f5', width: '90%', borderRadius: 16, padding: 16 }}>
             <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center', color: CURVE_COLOR, marginBottom: 10 }}>
-              Add a Memory
+              {editing ? 'Edit Memory' : 'Add a Memory'}
             </Text>
             <TextInput
               value={heading}
@@ -332,14 +434,26 @@ const Roadmap = () => {
               multiline
               style={{ borderWidth: 1, borderColor: '#ff9ecf', padding: 10, borderRadius: 8, marginBottom: 10, height: 80 }}
             />
-            <TouchableOpacity onPress={pickImage} style={{ backgroundColor: '#ffe4ec', padding: 10, borderRadius: 8, marginBottom: 10 }}>
-              <Text style={{ textAlign: 'center', color: CURVE_COLOR }}>Choose Image</Text>
+            <TouchableOpacity
+              onPress={pickImage}
+              disabled={actionLoading}
+              style={{ backgroundColor: '#ffe4ec', padding: 10, borderRadius: 8, marginBottom: 10, opacity: actionLoading ? 0.7 : 1 }}
+            >
+              <Text style={{ textAlign: 'center', color: CURVE_COLOR }}>{editing ? 'Change Image' : 'Choose Image'}</Text>
             </TouchableOpacity>
             {image && <Image source={{ uri: image }} style={{ width: '100%', height: 160, borderRadius: 10, marginBottom: 10 }} />}
-            <TouchableOpacity onPress={addMemory} style={{ backgroundColor: '#ff69b4', padding: 12, borderRadius: 8 }}>
-              <Text style={{ textAlign: 'center', color: 'white', fontWeight: 'bold' }}>Add</Text>
+            <TouchableOpacity
+              onPress={editing ? updateMemory : addMemory}
+              disabled={actionLoading}
+              style={{ backgroundColor: '#ff69b4', padding: 12, borderRadius: 8, opacity: actionLoading ? 0.7 : 1 }}
+            >
+              {actionLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={{ textAlign: 'center', color: 'white', fontWeight: 'bold' }}>{editing ? 'Update' : 'Add'}</Text>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setAddModal(false)}>
+            <TouchableOpacity onPress={closeForm}>
               <Text style={{ textAlign: 'center', marginTop: 10, color: '#888' }}>Cancel</Text>
             </TouchableOpacity>
           </View>
