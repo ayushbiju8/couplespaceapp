@@ -55,7 +55,8 @@
     "react-native-webview": "13.13.5",
     "reanimated": "^0.0.1-alpha",
     "socket.io-client": "^4.8.1",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "expo-checkbox": "~4.1.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

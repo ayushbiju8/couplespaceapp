@@ -23,6 +23,20 @@ import {
 type Post = {
   id: string;
   uri: string;
+  heading?: string;
+  content?: string;
+};
+
+type PostDetails = {
+  _id: string;
+  user: { _id: string };
+  heading: string;
+  content: string | null;
+  image: string | null;
+  likes: any[];
+  comments: any[];
+  createdAt: string;
+  updatedAt: string;
 };
 
 const Profile = () => {
@@ -42,6 +56,10 @@ const Profile = () => {
   const [profilePicModalVisible, setProfilePicModalVisible] = useState(false);
   const profilePicScale = useRef(new Animated.Value(0)).current;
 
+  // 🔎 New state for in-page post details modal
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<PostDetails | null>(null);
 
   const fetchProfileData = async () => {
     try {
@@ -54,7 +72,6 @@ const Profile = () => {
       });
 
       const userData = res.data.user || res.data.data || res.data;
-
       if (!userData) throw new Error('User data not found in response');
 
       const rawDob = userData.dob ? new Date(userData.dob) : null;
@@ -66,7 +83,6 @@ const Profile = () => {
       setInterests(userData.interests?.length ? JSON.parse(userData.interests[0] || '[]').join(', ') : '');
       setTempInterests(userData.interests?.length ? JSON.parse(userData.interests[0] || '[]').join(', ') : '');
       setProfilePicUri(userData.profilePicture || '');
-
     } catch (error) {
       console.error('Failed to fetch profile:', error);
       Alert.alert('Error', 'Could not load profile. Please try again.');
@@ -77,8 +93,10 @@ const Profile = () => {
 
   const fetchMyPosts = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) throw new Error("No token found");
+      setLoading(true);
+
+      const token = await AsyncStorage.getItem('token');
+      if (!token) throw new Error('No token found');
 
       const res = await axios.get(
         `${process.env.EXPO_PUBLIC_BACKEND_URL}/post/mypost`,
@@ -87,21 +105,83 @@ const Profile = () => {
         }
       );
 
-      // API returns { statusCode, data: [posts], message, success }
-      const postsData = res.data?.data || [];
+      const postsData = res.data?.data;
+      if (!Array.isArray(postsData)) {
+        throw new Error('Posts data not found in response');
+      }
 
-      // Map to your Post type { id, uri }
-      const formattedPosts = postsData.map((p: any) => ({
-        id: p._id,
-        uri: p.image || "", // fallback if no image
+      const formattedPosts: Post[] = postsData.map((p: any) => ({
+        id: p?._id || Math.random().toString(),
+        uri: p?.image || '',
+        heading: p?.heading || '',
+        content: p?.content || '',
       }));
 
       setPosts(formattedPosts);
-    } catch (err) {
-      console.error("❌ Failed to fetch posts:", err);
+    } catch (error) {
+      console.error('❌ Failed to fetch posts:', error);
+      Alert.alert('Error', 'Could not load your posts. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
+  // 🔎 Fetch single post details and open modal
+  const openPostDetails = async (postId: string) => {
+    try {
+      setDetailsLoading(true);
+      setDetailsVisible(true);
+
+      const token = await AsyncStorage.getItem('token');
+      if (!token) throw new Error('No token found');
+
+      const res = await axios.get(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/post/${postId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const data: PostDetails | undefined = res.data?.data;
+      if (!data) throw new Error('Post details not found');
+
+      setSelectedPost(data);
+    } catch (err) {
+      console.error('❌ Failed to fetch post details:', err);
+      Alert.alert('Error', 'Could not load post details.');
+      setDetailsVisible(false);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const deletePost = (postId: string) => {
+    Alert.alert('Delete Post', 'Are you sure you want to delete this post?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const token = await AsyncStorage.getItem('token');
+            if (!token) throw new Error('No token found');
+
+            await axios.delete(
+              `${process.env.EXPO_PUBLIC_BACKEND_URL}/post/${postId}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            // Refresh list and close modal
+            await fetchMyPosts();
+            setDetailsVisible(false);
+            setSelectedPost(null);
+            Alert.alert('Deleted', 'Your post has been deleted.');
+          } catch (err) {
+            console.error('❌ Failed to delete post:', err);
+            Alert.alert('Error', 'Failed to delete post.');
+          }
+        },
+      },
+    ]);
+  };
 
   const openProfilePic = () => {
     setProfilePicModalVisible(true);
@@ -183,13 +263,9 @@ const Profile = () => {
     fetchMyPosts();
   }, []);
 
-
-  const renderPost = ({ item }: { item: Post }) => (
-    <View className="w-1/3 aspect-square m-1 rounded-lg bg-white overflow-hidden shadow">
-      <Image source={{ uri: item.uri }} className="w-full h-full" />
-    </View>
-  );
-
+  // Split posts for layout
+  const imagePosts = posts.filter((p) => p.uri);
+  const textPosts = posts.filter((p) => !p.uri);
 
   if (loading) {
     return (
@@ -207,6 +283,7 @@ const Profile = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Profile Pic Modal */}
       <Modal
         visible={profilePicModalVisible}
         transparent
@@ -222,6 +299,7 @@ const Profile = () => {
         </TouchableOpacity>
       </Modal>
 
+      {/* Profile Card */}
       <View className="px-5 mt-5">
         <View className="bg-white rounded-xl p-4 shadow-md">
           <View className="flex-row items-center gap-4">
@@ -284,22 +362,126 @@ const Profile = () => {
         </View>
       </View>
 
+      {/* About Me */}
       <View className="flex-row items-center mt-6 mb-2 mx-5">
         <View className="flex-1 h-px bg-pink-200" />
         <Text className="mx-2 text-sm text-pink-600 font-semibold">About Me</Text>
         <View className="flex-1 h-px bg-pink-200" />
       </View>
 
+      {/* Posts Section */}
       <Text className="text-xl font-bold text-pink-600 px-5 mt-2 mb-2">📸 Posts</Text>
 
+      {/* Image posts grid */}
       <FlatList
-        data={posts}
-        renderItem={renderPost}
+        data={imagePosts}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => openPostDetails(item.id)}
+            className="w-1/3 aspect-square m-1 rounded-lg bg-white overflow-hidden shadow"
+          >
+            <Image source={{ uri: item.uri }} className="w-full h-full" />
+          </TouchableOpacity>
+        )}
         keyExtractor={(item) => item.id}
         numColumns={3}
         scrollEnabled={false}
-        contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: 10 }}
+        ListEmptyComponent={<Text className="text-gray-500 text-center my-3">No image posts yet</Text>}
       />
+
+      {/* Text-only posts */}
+      {textPosts.length > 0 && (
+        <View className="px-5 mt-6">
+          <Text className="text-lg font-semibold text-pink-700 mb-2">📝 Text Posts</Text>
+          {textPosts.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => openPostDetails(item.id)}
+              className="p-3 mb-3 rounded-lg bg-white shadow border border-pink-100"
+            >
+              <Text className="font-bold text-gray-800">{item.heading || 'Untitled'}</Text>
+              {item.content ? (
+                <Text className="text-gray-600 mt-1" numberOfLines={2}>
+                  {item.content}
+                </Text>
+              ) : (
+                <Text className="text-gray-400 mt-1">No content</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* 🔎 Post Details Modal (in this page) */}
+      <Modal
+        visible={detailsVisible}
+        animationType="slide"
+        onRequestClose={() => setDetailsVisible(false)}
+      >
+        <View className="flex-1 bg-pink-50">
+          {/* Header */}
+          <View className="flex-row items-center justify-between px-4 py-4 bg-white shadow">
+            <Text className="text-lg font-semibold text-pink-700">Post Details</Text>
+            <TouchableOpacity onPress={() => setDetailsVisible(false)}>
+              <Ionicons name="close" size={24} color="#D81B60" />
+            </TouchableOpacity>
+          </View>
+
+          {detailsLoading ? (
+            <View className="flex-1 justify-center items-center">
+              <ActivityIndicator size="large" color="#D81B60" />
+            </View>
+          ) : selectedPost ? (
+            <ScrollView className="flex-1 px-4 py-4">
+              {selectedPost.image ? (
+                <Image
+                  source={{ uri: selectedPost.image }}
+                  className="w-full h-64 rounded-xl mb-4"
+                  resizeMode="cover"
+                />
+              ) : null}
+
+              <Text className="text-2xl font-bold text-gray-800">{selectedPost.heading || 'Untitled'}</Text>
+
+              {selectedPost.content ? (
+                <Text className="text-base text-gray-700 mt-2">{selectedPost.content}</Text>
+              ) : (
+                <Text className="text-base text-gray-400 mt-2">No content</Text>
+              )}
+
+              <Text className="text-xs text-gray-500 mt-3">
+                Posted on {new Date(selectedPost.createdAt).toLocaleString()}
+              </Text>
+
+              <View className="flex-row items-center gap-4 mt-3">
+                <Text className="text-sm text-gray-600">❤️ {selectedPost.likes?.length || 0}</Text>
+                <Text className="text-sm text-gray-600">💬 {selectedPost.comments?.length || 0}</Text>
+              </View>
+
+              {/* Delete button */}
+              <TouchableOpacity
+                onPress={() => deletePost(selectedPost._id)}
+                className="bg-red-600 rounded-lg py-3 mt-6 items-center"
+              >
+                <Text className="text-white font-semibold">Delete Post</Text>
+              </TouchableOpacity>
+
+              {/* Close button */}
+              <TouchableOpacity
+                onPress={() => setDetailsVisible(false)}
+                className="bg-gray-800 rounded-lg py-3 mt-3 items-center"
+              >
+                <Text className="text-white">Close</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          ) : (
+            <View className="flex-1 justify-center items-center">
+              <Text className="text-gray-600">No post selected</Text>
+            </View>
+          )}
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
